@@ -100,8 +100,12 @@ executable play-colog-poly
   build-depends:       co-log
                      , co-log-core
                      , co-log-polysemy
+                     , chronos
                      , polysemy
                      , text
+                     , time
+                     , typerep-map
+                     , vector
 
   ghc-options:         -threaded
                        -rtsopts
