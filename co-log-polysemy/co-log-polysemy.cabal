@@ -97,9 +97,11 @@ executable play-colog-poly
   hs-source-dirs:      example
   main-is:             Main.hs
 
-  build-depends:       co-log-core
+  build-depends:       co-log
+                     , co-log-core
                      , co-log-polysemy
                      , polysemy
+                     , text
 
   ghc-options:         -threaded
                        -rtsopts
