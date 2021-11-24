@@ -43,6 +43,7 @@ module Colog.Message
        , showSeverity
        , showSourceLoc
        , showTime
+       , showThreadId
 
          -- * Externally extensible message type
          -- ** Field of the dependent map
@@ -368,7 +369,7 @@ fmtRichMessageDefault :: MonadIO m => RichMessage m -> m Text
 fmtRichMessageDefault msg = fmtRichMessageCustomDefault msg formatRichMessage
   where
     formatRichMessage :: Maybe ThreadId -> Maybe C.Time -> Message -> Text
-    formatRichMessage (maybe "" showThreadId -> thread) (maybe "" showTime -> time) Msg{..} =
+    formatRichMessage (maybe "" showThreadId -> thread) (maybe "" (showTime . C.timeToOffsetDatetime (C.Offset 0)) -> time) Msg{..} =
         showSeverity msgSeverity
      <> time
      <> showSourceLoc msgStack
@@ -396,7 +397,7 @@ fmtSimpleRichMessageDefault :: MonadIO m => RichMsg m SimpleMsg -> m Text
 fmtSimpleRichMessageDefault msg = fmtRichMessageCustomDefault msg formatRichMessage
   where
     formatRichMessage :: Maybe ThreadId -> Maybe C.Time -> SimpleMsg -> Text
-    formatRichMessage (maybe "" showThreadId -> thread) (maybe "" showTime -> time) SimpleMsg{..} =
+    formatRichMessage (maybe "" showThreadId -> thread) (maybe "" (showTime . C.timeToOffsetDatetime (C.Offset 0)) -> time) SimpleMsg{..} =
         time
      <> showSourceLoc simpleMsgStack
      <> thread
@@ -418,32 +419,28 @@ fmtRichMessageCustomDefault RichMsg{..} formatter = do
 
 {- | Shows time in the following format:
 
->>> showTime $ C.Time 1577656800
+>>> showTime $ C.timeToOffsetDatetime (C.Offset 0) $ C.Time 1577656800
 [29 Dec 2019 22:00:00.000 +00:00]
 -}
-showTime :: C.Time -> Text
-showTime t =
-    square
-    $ toStrict
-    $ TB.toLazyText
-    $ builderDmyHMSz (C.timeToDatetime t)
+showTime :: C.OffsetDatetime -> Text
+showTime = square . toStrict . TB.toLazyText . builderDmyHMSz
 
 ----------------------------------------------------------------------------
 -- Chronos extra
 ----------------------------------------------------------------------------
 
-{- | Given a 'Datetime', constructs a 'Text' 'TB.Builder' corresponding to a
-Day\/Month\/Year,Hour\/Minute\/Second\/Offset encoding of the given 'Datetime'.
+{- | Given a 'OffsetDatetime', constructs a 'Text' 'TB.Builder' corresponding to a
+Day\/Month\/Year,Hour\/Minute\/Second\/Offset encoding of the given 'OffsetDatetime'.
 
 Example: @29 Dec 2019 22:00:00.000 +00:00@
 -}
-builderDmyHMSz :: C.Datetime -> TB.Builder
-builderDmyHMSz (C.Datetime date time) =
+builderDmyHMSz :: C.OffsetDatetime -> TB.Builder
+builderDmyHMSz (C.OffsetDatetime (C.Datetime date time) offset) =
        builderDmy date
     <> spaceSep
     <> C.builder_HMS (C.SubsecondPrecisionFixed 3) (Just ':') time
     <> spaceSep
-    <> C.builderOffset C.OffsetFormatColonOn (C.Offset 0)
+    <> C.builderOffset C.OffsetFormatColonOn offset
   where
     spaceSep :: TB.Builder
     spaceSep = TB.singleton ' '

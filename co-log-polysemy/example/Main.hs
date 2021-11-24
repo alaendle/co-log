@@ -8,7 +8,7 @@ import Prelude hiding (log)
 import Polysemy (Member, Sem, runM)
 
 import Colog (FieldType, LogAction, Message, Msg (..), RichMessage, RichMsg (..), Severity (Debug, Info), cmapM, defaultFieldMap, extractField, logByteStringStdout, richMessageAction, showSeverity, upgradeMessageAction)
-import Colog.Message (FieldMap, showSourceLoc)
+import Colog.Message (FieldMap, showSourceLoc, showTime, showThreadId)
 import Colog.Polysemy (Log, log, runLogAction)
 import Control.Concurrent (ThreadId)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -67,70 +67,6 @@ fmtRichMessageCustomDefaultTz RichMsg{..} formatter = do
     maybePosixTime <- extractField $ TM.lookup @"posixTime" richMsgMap
     maybeLocalTz   <- extractField $ TM.lookup @"localTz"   richMsgMap
     pure $ formatter maybeThreadId maybePosixTime maybeLocalTz richMsgMsg
-
-showTime :: C.OffsetDatetime -> Text
-showTime t =
-    square
-    $ toStrict
-    $ TB.toLazyText
-    $ builderDmyHMSz t
-
-builderDmyHMSz :: C.OffsetDatetime -> TB.Builder
-builderDmyHMSz (C.OffsetDatetime (C.Datetime date time) offset) =
-       builderDmy date
-    <> spaceSep
-    <> C.builder_HMS (C.SubsecondPrecisionFixed 3) (Just ':') time
-    <> spaceSep
-    <> C.builderOffset C.OffsetFormatColonOn offset
-  where
-    spaceSep :: TB.Builder
-    spaceSep = TB.singleton ' '
-
-    {- | Given a 'Date' construct a 'Text' 'TB.Builder'
-    corresponding to a Day\/Month\/Year encoding.
-
-    Example: @01 Jan 2020@
-    -}
-    builderDmy :: C.Date -> TB.Builder
-    builderDmy (C.Date (C.Year y) m d) =
-           zeroPadDayOfMonth d
-        <> spaceSep
-        <> TB.fromText (C.caseMonth C.abbreviated m)
-        <> spaceSep
-        <> TB.decimal y
-
-
-    zeroPadDayOfMonth :: C.DayOfMonth -> TB.Builder
-    zeroPadDayOfMonth (C.DayOfMonth d) =
-        if d < 100
-        then Vector.unsafeIndex twoDigitTextBuilder d
-        else TB.decimal d
-
-    twoDigitTextBuilder :: Vector.Vector TB.Builder
-    twoDigitTextBuilder = Vector.fromList $
-        map (TB.fromText . pack) twoDigitStrings
-    {-# NOINLINE twoDigitTextBuilder #-}
-
-    twoDigitStrings :: [String]
-    twoDigitStrings =
-        [ "00","01","02","03","04","05","06","07","08","09"
-        , "10","11","12","13","14","15","16","17","18","19"
-        , "20","21","22","23","24","25","26","27","28","29"
-        , "30","31","32","33","34","35","36","37","38","39"
-        , "40","41","42","43","44","45","46","47","48","49"
-        , "50","51","52","53","54","55","56","57","58","59"
-        , "60","61","62","63","64","65","66","67","68","69"
-        , "70","71","72","73","74","75","76","77","78","79"
-        , "80","81","82","83","84","85","86","87","88","89"
-        , "90","91","92","93","94","95","96","97","98","99"
-        ]
-
--- copied without change - maybe make public
-showThreadId :: ThreadId -> Text
-showThreadId = square . pack . show
-
-square :: Text -> Text
-square t = "[" <> t <> "] "
 
 main :: IO ()
 main = do
